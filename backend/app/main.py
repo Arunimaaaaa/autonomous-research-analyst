@@ -43,12 +43,6 @@ app.include_router(research_router, prefix=settings.API_V1_STR, tags=["Research"
 # Mount static artifacts (generated charts & tables)
 app.mount("/artifacts", StaticFiles(directory=settings.ARTIFACTS_DIR), name="artifacts")
 
-# Optional: Mount compiled frontend SPA if dist exists
-frontend_dist = settings.BASE_DIR.parent / "frontend" / "dist"
-if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
-
-
 
 @app.get("/health", tags=["Health"])
 async def health_check():
@@ -59,3 +53,10 @@ async def health_check():
         "version": settings.APP_VERSION,
         "environment": settings.APP_ENV
     }
+
+
+# Optional: Mount compiled frontend SPA if dist exists (mounted at the end as catch-all)
+frontend_dist = settings.BASE_DIR.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+
