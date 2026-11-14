@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 from app.orchestrator.state import AgentState
 
@@ -11,6 +11,10 @@ DISCLAIMER = (
     "for informational and academic purposes only. It does NOT constitute financial, investment, "
     "tax, or legal advice. Always perform your own independent due diligence before making investment decisions."
 )
+
+
+def get_utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 async def planner_node(state: AgentState) -> Dict[str, Any]:
@@ -53,7 +57,7 @@ async def planner_node(state: AgentState) -> Dict[str, Any]:
         "role": "assistant",
         "content": f"Decomposed query '{state['question']}' into {len(tasks)} tasks.",
         "tool_calls": None,
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
@@ -76,7 +80,7 @@ async def data_agent_node(state: AgentState) -> Dict[str, Any]:
         "source_url": f"https://www.sec.gov/edgar/browse/?CIK={ticker}",
         "title": f"{ticker} Annual Report & Financial Statements",
         "raw_text": f"Recent 10-K filing outlines revenue growth driven by cloud and AI services, while highlighting supply chain concentration and geopolitical tariffs as primary operational risks for {ticker}.",
-        "fetched_at": datetime.utcnow()
+        "fetched_at": get_utc_now()
     }
 
     msg = {
@@ -84,7 +88,7 @@ async def data_agent_node(state: AgentState) -> Dict[str, Any]:
         "role": "assistant",
         "content": f"Successfully ingested market data and recent regulatory filings for {ticker}.",
         "tool_calls": {"doc_id": doc_id},
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
@@ -132,7 +136,7 @@ async def analyst_agent_node(state: AgentState) -> Dict[str, Any]:
         "role": "assistant",
         "content": f"Computed {len(metrics)} quantitative metrics and generated {ticker} price trend chart.",
         "tool_calls": {"metrics_computed": len(metrics)},
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
@@ -155,7 +159,7 @@ async def rag_agent_node(state: AgentState) -> Dict[str, Any]:
         "role": "assistant",
         "content": f"Retrieved key operational risk factors and strategic growth drivers from filing {doc_id}.",
         "tool_calls": {"source_doc": doc_id},
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
@@ -189,7 +193,7 @@ async def writer_agent_node(state: AgentState) -> Dict[str, Any]:
     markdown_report = f"""# Autonomous Equity Research Brief: {ticker}
 
 **Research Query:** {state['question']}
-**Generated At:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+**Generated At:** {get_utc_now().strftime('%Y-%m-%d %H:%M:%S UTC')}
 
 ---
 
@@ -223,7 +227,7 @@ Disclosures in regulatory filings highlight that while revenue growth remains in
         "role": "assistant",
         "content": "Completed research brief draft with inline source citations.",
         "tool_calls": {"citations_count": len(citations)},
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
@@ -261,7 +265,7 @@ async def critic_agent_node(state: AgentState) -> Dict[str, Any]:
         "role": "assistant",
         "content": "Report verified successfully: all claims mapped to ground-truth sources." if is_verified else f"Verification failed: {len(errors)} errors found.",
         "tool_calls": {"is_verified": is_verified, "errors": errors},
-        "created_at": datetime.utcnow()
+        "created_at": get_utc_now()
     }
 
     return {
