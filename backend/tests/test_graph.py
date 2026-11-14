@@ -29,7 +29,7 @@ async def test_research_graph_execution():
 
     # 2. Verify data agent fetched documents
     assert len(final_state["documents"]) >= 1, "Data agent should ingest at least 1 document"
-    assert final_state["documents"][0]["source_type"] == "sec_filing_10k"
+    assert final_state["documents"][0]["source_type"].startswith("sec_filing"), "Document source type should be sec_filing"
 
     # 3. Verify analyst computed metrics and artifacts
     assert len(final_state["metrics"]) >= 2, "Analyst agent should compute at least 2 metrics"

@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 from app.orchestrator.state import AgentState
+from app.tools import market_data_tool, sec_edgar_tool, news_tool
 
 logger = logging.getLogger(__name__)
 
@@ -67,32 +68,77 @@ async def planner_node(state: AgentState) -> Dict[str, Any]:
 
 
 async def data_agent_node(state: AgentState) -> Dict[str, Any]:
-    """Fetches raw market data and qualitative news/filings."""
+    """Fetches real market fundamentals, price history, and SEC filings/news."""
     ticker = state["ticker"]
-    logger.info("Running Data Agent for ticker: %s", ticker)
+    logger.info("Running Data Agent with live tools for ticker: %s", ticker)
 
-    # In production, uses yfinance + SEC Edgar + NewsAPI tools
-    # Seed sample raw document for verifiable citation
-    doc_id = f"doc-{uuid.uuid4().hex[:8]}"
-    doc = {
-        "id": doc_id,
-        "source_type": "sec_filing_10k",
-        "source_url": f"https://www.sec.gov/edgar/browse/?CIK={ticker}",
-        "title": f"{ticker} Annual Report & Financial Statements",
-        "raw_text": f"Recent 10-K filing outlines revenue growth driven by cloud and AI services, while highlighting supply chain concentration and geopolitical tariffs as primary operational risks for {ticker}.",
-        "fetched_at": get_utc_now()
-    }
+    # 1. Fetch live fundamentals
+    fundamentals = market_data_tool.fetch_key_fundamentals(ticker)
+
+    # 2. Fetch live recent SEC filings
+    filings = await sec_edgar_tool.fetch_recent_filings(ticker, max_filings=2)
+
+    # 3. Fetch recent sanitized news
+    news_items = news_tool.fetch_recent_news(ticker, max_items=2)
+
+    # Convert filings & news to structured Document records with resolvable IDs
+    documents = []
+    for f in filings:
+        doc_id = f"doc-sec-{uuid.uuid4().hex[:8]}"
+        documents.append({
+            "id": doc_id,
+            "source_type": f"sec_filing_{f.get('form', '10-K')}",
+            "source_url": f.get("url"),
+            "title": f"{ticker} Form {f.get('form')} Filing ({f.get('filing_date')})",
+            "raw_text": f.get("summary", ""),
+            "fetched_at": get_utc_now()
+        })
+
+    for n in news_items:
+        doc_id = f"doc-news-{uuid.uuid4().hex[:8]}"
+        documents.append({
+            "id": doc_id,
+            "source_type": "financial_news",
+            "source_url": n.get("url"),
+            "title": n.get("title", f"{ticker} News"),
+            "raw_text": n.get("text", ""),
+            "fetched_at": get_utc_now()
+        })
+
+    # Convert fundamental ratios to stored Metrics
+    metrics = []
+    if fundamentals.get("marketCap"):
+        metrics.append({
+            "id": f"metric-mcap-{uuid.uuid4().hex[:6]}",
+            "name": "market_capitalization",
+            "value_numeric": float(fundamentals["marketCap"]),
+            "value_json": {"currency": fundamentals.get("currency", "USD"), "formatted": f"${fundamentals['marketCap']:,.0f}"},
+            "computed_by_task": "task-data"
+        })
+    if fundamentals.get("trailingPE"):
+        metrics.append({
+            "id": f"metric-pe-{uuid.uuid4().hex[:6]}",
+            "name": "trailing_pe_ratio",
+            "value_numeric": float(fundamentals["trailingPE"]),
+            "value_json": {"ratio": "P/E"},
+            "computed_by_task": "task-data"
+        })
 
     msg = {
         "agent": "DataAgent",
         "role": "assistant",
-        "content": f"Successfully ingested market data and recent regulatory filings for {ticker}.",
-        "tool_calls": {"doc_id": doc_id},
+        "content": f"Ingested {len(documents)} filings/news documents and extracted key valuation fundamentals for {ticker}.",
+        "tool_calls": {
+            "documents_count": len(documents),
+            "metrics_count": len(metrics),
+            "sector": fundamentals.get("sector")
+        },
         "created_at": get_utc_now()
     }
 
     return {
-        "documents": [doc],
+        "documents": documents,
+        "metrics": metrics,
         "agent_messages": [msg]
     }
 
