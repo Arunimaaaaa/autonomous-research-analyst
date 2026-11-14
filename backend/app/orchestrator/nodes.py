@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 from app.orchestrator.state import AgentState
 from app.tools import market_data_tool, sec_edgar_tool, news_tool
+from app.agents import analyst_agent
 
 logger = logging.getLogger(__name__)
 
@@ -146,48 +147,29 @@ async def data_agent_node(state: AgentState) -> Dict[str, Any]:
 async def analyst_agent_node(state: AgentState) -> Dict[str, Any]:
     """Computes quantitative metrics and generates charts in sandbox."""
     ticker = state["ticker"]
-    logger.info("Running Analyst Agent for ticker: %s", ticker)
+    logger.info("Running Sandboxed Analyst Agent for ticker: %s", ticker)
 
-    # Simulated computed metrics (in Phase 3 replaced by sandboxed code execution)
-    metric_id_1 = f"metric-{uuid.uuid4().hex[:8]}"
-    metric_id_2 = f"metric-{uuid.uuid4().hex[:8]}"
+    # 1. Retrieve 1-year OHLCV price series
+    price_df = market_data_tool.fetch_price_history(ticker, period="1y")
 
-    metrics = [
-        {
-            "id": metric_id_1,
-            "name": "ytd_return_pct",
-            "value_numeric": 18.45,
-            "value_json": {"period": "YTD", "unit": "percentage"},
-            "computed_by_task": "task-analyst"
-        },
-        {
-            "id": metric_id_2,
-            "name": "annualized_volatility",
-            "value_numeric": 22.8,
-            "value_json": {"lookback_days": 252, "unit": "percentage"},
-            "computed_by_task": "task-analyst"
-        }
-    ]
-
-    artifact = {
-        "id": f"art-{uuid.uuid4().hex[:8]}",
-        "kind": "chart",
-        "path": f"artifacts/{ticker}_price_trend.png",
-        "caption": f"{ticker} 12-Month Adjusted Close Price & 50-DMA Trend",
-        "produced_by_task": "task-analyst"
-    }
+    # 2. Run sandboxed Python code generation & execution
+    metrics, artifacts = analyst_agent.analyze(ticker, price_df)
 
     msg = {
         "agent": "AnalystAgent",
         "role": "assistant",
-        "content": f"Computed {len(metrics)} quantitative metrics and generated {ticker} price trend chart.",
-        "tool_calls": {"metrics_computed": len(metrics)},
+        "content": f"Successfully computed {len(metrics)} quantitative metrics and generated {len(artifacts)} charts in secure sandbox.",
+        "tool_calls": {
+            "metrics_count": len(metrics),
+            "artifacts_count": len(artifacts),
+            "artifacts": [a["path"] for a in artifacts]
+        },
         "created_at": get_utc_now()
     }
 
     return {
         "metrics": metrics,
-        "artifacts": [artifact],
+        "artifacts": artifacts,
         "agent_messages": [msg]
     }
 
