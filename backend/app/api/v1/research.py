@@ -33,6 +33,7 @@ async def execute_research_workflow(run_id: str, ticker: str, question: str):
         "metrics": [],
         "artifacts": [],
         "agent_messages": [],
+        "qualitative_findings": [],
         "report_draft": None,
         "verification_errors": [],
         "iteration_count": 0,

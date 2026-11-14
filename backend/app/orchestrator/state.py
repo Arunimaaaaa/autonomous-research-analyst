@@ -19,6 +19,7 @@ class AgentState(TypedDict):
     metrics: Annotated[List[Dict[str, Any]], operator.add]
     artifacts: Annotated[List[Dict[str, Any]], operator.add]
     agent_messages: Annotated[List[Dict[str, Any]], operator.add]
+    qualitative_findings: Annotated[List[Dict[str, Any]], operator.add]
 
     # Shared mutable objects
     report_draft: Optional[Dict[str, Any]]

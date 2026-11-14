@@ -16,6 +16,7 @@ async def test_research_graph_execution():
         "metrics": [],
         "artifacts": [],
         "agent_messages": [],
+        "qualitative_findings": [],
         "report_draft": None,
         "verification_errors": [],
         "iteration_count": 0,
